@@ -1,11 +1,26 @@
 %% Fase 3 - Importar audio
-filename = 'lluvia.wav'; %filename
+filename = 'prueba1.opus'; %filename
 [y,Fs_audio]=audioread(filename); %Save cropped audiofile in 10 sec.
 plot(y);
-title('Rx.wav');
+title('Rx.opus');
+
+%% Fase 1 - Recibir audio
+Fs=96000; Nb=16;Chs=1; 
+recObj = audiorecorder(Fs, Nb, Chs); 
+get(recObj); 
+disp('Start speaking.') 
+recordblocking(recObj, 20); 
+disp('End of Recording.'); 
+% Store data in double-pre cision array. 
+myRecording = getaudiodata(recObj); 
+% Plot the waveform. 
+plot(myRecording); 
+% Power Spectrum Densitiy: 
+pwelch(myRecording,500,300,500,'one-side','power',Fs) 
 
 %% Elimine de la señal recibida, la parte que corresponde al silencio          
-Rx_signal = y;   
+Rx_signal = myRecording;
+%Rx_signal = y;   
 threshold = 0.1;                            % Detecting the channel energization 
 start = find(abs(Rx_signal)> threshold,3,'first'); % Initial 
 stop  = find(abs(Rx_signal)> threshold,1,'last');  % End 
@@ -22,14 +37,14 @@ pbase = rectwin(mp); % Complete pulse
 %% Pulso base para CL srrc
 Fs      =   96000;            % Samples per second
 Ts      =   1/Fs;              % 
-beta    =   0.21;               % Roll-off factor
+beta    =   0.2;               % Roll-off factor
 B       =   20000;             % Bandwidth available
 Rb      =   2*B/(1+beta);      % Bit rate (= Baud rate)
 mp      =   ceil(Fs/Rb);       % samples per pulse
 Rb      =   Fs/mp;             % Recompute bit rate
 Tp      =   1/Rb;              % Symbol period
 B       =   (Rb*(1+beta)/2);   % Bandwidth consumed
-D       =   10;                 % Time duration in terms of Tp
+D       =   6;                 % Time duration in terms of Tp
 type    =   'srrc';            % Shape pulse: Square Root Rise Cosine
 E       =   Tp;                % Energy
 [pbase ~] = rcpulse(beta, D, Tp, Ts, type, E);    % Pulse Generation
@@ -107,10 +122,12 @@ SFD_bits = bits_Rx(57:56+numel(SFD));
 %Destination and Source Address
 DSA_bits = bits_Rx(56+numel(SFD)+1:56+numel(SFD)+288);
 
-header = bits_Rx(56+8+288+1:56+8+288+20); %header
-data_bits = bits_Rx(372+1:372+); %data
+header = bits_Rx(56+8+288+1:56+8+288+32); %header
+data_bits = bits_Rx(372+1:372+501704); %data
 
 audioValues = vec2mat(data_bits,8); % Obtain Bytes
 audioValues = bi2de(audioValues); % Bin2Dec conversion
 rxAudioId = fopen('rx_audio.opus','w'); %File ID
 fwrite(rxAudioId,audioValues); % Write the file
+
+play(rxAudioId); % Play back the recording. 
