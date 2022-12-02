@@ -115,7 +115,7 @@ DSA = de2bi(uint8('Pr??ctica 2 FASE II: 717781 y 714901'),8,'left-msb');%DSA siz
 
 DSA = reshape(DSA',1,numel(DSA));%Reshapes DSA to a transposed vector of 1x its size 
 
-filename = 'rain.opus';
+filename = 'song3.opus';
 
 info = audioinfo(filename);
 
@@ -131,7 +131,9 @@ b = b'; bits_audio = b(:); % Arrange to a single vector
 
 size_audio = de2bi(numel(bits_audio),32,'left-msb');
 
-header = [size_audio(1,:) 1]';
+%header = [size_audio(1,:) 1]';
+
+header = [size_audio(:)];
 
 payload = de2bi(songV,8,'left-msb'); % Puede ser right-msb
 
