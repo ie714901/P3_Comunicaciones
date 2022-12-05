@@ -2,7 +2,7 @@ Fs=96000; Nb=16;Chs=1;
 recObj = audiorecorder(Fs, Nb, Chs); 
 get(recObj); 
 disp('Start speaking.') 
-recordblocking(recObj, 90); 
+recordblocking(recObj, 150); 
 disp('End of Recording.'); 
 % Store data in double-pre cision array. 
 myRecording = getaudiodata(recObj); 
@@ -78,26 +78,27 @@ bits_Rx = bits_Rx(idx_img+1-numel(preamble):end);
 SFD_bits = bits_Rx(preamble_size+1:preamble_size+numel(SFD));
 SFD_size = numel(SFD);
 %Destination and Source Address
-DSA_bits = bits_Rx(preamble_size+SFD_size+1:preamble_size+numel(SFD)+184);
+DSA_bits = bits_Rx(preamble_size+SFD_size+1:preamble_size+SFD_size+184);
 DSA_size = numel(DSA_bits);
 DSA_val = reshape(DSA_bits, 8, DSA_size/8)'; 
 DSA_val = bi2de(DSA_val, 'left-msb'); 
 DSA_val = char(DSA_val)' %print DSA in console
 
-header = bits_Rx(preamble_size+SFD_size+DSA_size+1:preamble_size+SFD_size+DSA_size+32); %header
-header_size = numel(header);
-w = bi2de(header(1:16)','left-msb'); %image's width
-h = bi2de(header(17:header_size)','left-msb'); %image's height
+header_img = bits_Rx(preamble_size+SFD_size+DSA_size+1:preamble_size+SFD_size+DSA_size+32); %header
+header_size_img = numel(header_img);
+w = bi2de(header_img(1:16)','left-msb'); %image's width
+h = bi2de(header_img(17:header_size_img)','left-msb'); %image's height
 final_img = preamble_size+SFD_size+DSA_size+32+w*h*8;
-data_bits = bits_Rx(preamble_size+SFD_size+DSA_size+header_size+1 ...
-    :preamble_size+SFD_size+DSA_size+header_size+w*h*8); %data
+data_bits_img = bits_Rx(preamble_size+SFD_size+DSA_size+header_size_img+1 ...
+    :preamble_size+SFD_size+DSA_size+header_size_img+w*h*8); %data
 
 preamble = [1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0]';
 preamble_detect = comm.PreambleDetector(preamble,'Input','Bit');
 idx_audio = preamble_detect(bits_Rx(final_img+1:final_img+128))
 bits_Rx_audio = bits_Rx(idx_audio+1-numel(preamble):end);
 
-bits_reshape = reshape(data_bits, 8, w*h); %Matrix of 8 * w * h
+%Reconstrucción imagen
+bits_reshape = reshape(data_bits_img, 8, w*h); %Matrix of 8 * w * h
 bits_reshape = bits_reshape'; %Transpose 
 decVal = bi2de(bits_reshape, 'left-msb'); %convert from binary to decimal
 lena_reshape = reshape(decVal, w, h); %reshape the image
@@ -112,8 +113,9 @@ SFD_bits_audio = bits_Rx(final_img+preamble_size+1:final_img+preamble_size+SFD_s
 DSA_bits_audio = bits_Rx(final_img+preamble_size+SFD_size+1:final_img+preamble_size+SFD_size+168);
 DSA_size_audio = numel(DSA_bits_audio);
 header_audio = bits_Rx(final_img+preamble_size+SFD_size+DSA_size_audio+1:final_img+preamble_size+SFD_size+DSA_size_audio+32); %header
-header_data = bit2int(bits_Rx(final_img+preamble_size+SFD_size+DSA_size_audio:final_img+preamble_size+SFD_size+DSA_size_audio+31),32);
-data_bits_audio = bits_Rx(final_img+preamble_size+SFD_size+DSA_size_audio+32+1:final_img+preamble_size+SFD_size+DSA_size_audio+32+header_data-1); %data
+%header_data = bit2int(bits_Rx(final_img+preamble_size+SFD_size+DSA_size_audio:final_img+preamble_size+SFD_size+DSA_size_audio+31),32);
+header_data = bit2int(header_audio,32);
+data_bits_audio = bits_Rx(final_img+preamble_size+SFD_size+DSA_size_audio+32+1:final_img+preamble_size+SFD_size+DSA_size_audio+32+header_data); %data
 
 %Destination and Source Address audio
 DSA_val_audio = reshape(DSA_bits_audio, 8, DSA_size_audio/8)'; 
