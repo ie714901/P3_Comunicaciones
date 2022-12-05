@@ -39,10 +39,12 @@ E       =   Tp;                % Energy
 % Match Filter
 Match_Filter = fliplr(pbase);  %Mirror the rectangular pulse base
 Rx_signal_filtered = conv(Rx_signal, Match_Filter); %Convolution of filtered signal and mirrored rectangular pulse base + noise
+figure();
 plot(Rx_signal_filtered); title('Rx con Match Filter');
 
 % Diagrama de ojo
-eyediagram(Rx_signal_filtered(1:1000), 3*mp); %Eye Diagram
+figure();
+eyediagram(Rx_signal_filtered(1:100000), 3*mp); %Eye Diagram
 
 % Densidad espectral de potencia
 pwelch(Rx_signal_filtered,500,300,500,Fs,'power'); %Spectral density 
@@ -75,14 +77,10 @@ bits_Rx= bits_Rx(idx+1-numel(preamble):end);
 preamble_size = numel(preamble);
 SFD_size = numel(SFD);
 
-
-
-
-% Recuperación EJERCICIO 7
+% SFD
 SFD_bits = bits_Rx(preamble_size+1:preamble_size+numel(SFD));
-
 %Destination and Source Address
-DSA_bits = bits_Rx(preamble_size+numel(SFD)+1:preamble_size+numel(SFD)+96);
+DSA_bits = bits_Rx(preamble_size+numel(SFD)+1:preamble_size+numel(SFD)+184);
 DSA_size = numel(DSA_bits);
 DSA_val = reshape(DSA_bits, 8, DSA_size/8)'; 
 DSA_val = bi2de(DSA_val, 'left-msb'); 
