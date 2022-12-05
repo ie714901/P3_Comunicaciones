@@ -1,10 +1,11 @@
+% Grabar audio recibido
 Fs=96000; Nb=16;Chs=1; 
 recObj = audiorecorder(Fs, Nb, Chs); 
 get(recObj); 
 disp('Start speaking.') 
 recordblocking(recObj, 150); 
 disp('End of Recording.'); 
-% Store data in double-pre cision array. 
+% Store data in double-precision array. 
 myRecording = getaudiodata(recObj); 
 % Plot the waveform. 
 plot(myRecording); 
@@ -43,7 +44,8 @@ figure();
 plot(Rx_signal_filtered); title('Rx con Match Filter');
 
 % Diagrama de ojo
-eyediagram(Rx_signal_filtered(1:15000), 3*mp); %Eye Diagram
+eyediagram(Rx_signal_filtered(Fs/8:Fs/4), 2*mp); %Eye Diagram 
+title('Diagrama de ojo de señal Rx con pulso SRRC')
 
 % Densidad espectral de potencia
 figure();
@@ -77,13 +79,15 @@ bits_Rx = bits_Rx(idx_img+1-numel(preamble):end);
 % SFD
 SFD_bits = bits_Rx(preamble_size+1:preamble_size+numel(SFD));
 SFD_size = numel(SFD);
-%Destination and Source Address
+
+%Destination and Source Address imagen
 DSA_bits = bits_Rx(preamble_size+SFD_size+1:preamble_size+SFD_size+184);
 DSA_size = numel(DSA_bits);
 DSA_val = reshape(DSA_bits, 8, DSA_size/8)'; 
 DSA_val = bi2de(DSA_val, 'left-msb'); 
 DSA_val = char(DSA_val)' %print DSA in console
 
+% Header imagen
 header_img = bits_Rx(preamble_size+SFD_size+DSA_size+1:preamble_size+SFD_size+DSA_size+32); %header
 header_size_img = numel(header_img);
 w = bi2de(header_img(1:16)','left-msb'); %image's width
@@ -92,8 +96,9 @@ final_img = preamble_size+SFD_size+DSA_size+32+w*h*8;
 data_bits_img = bits_Rx(preamble_size+SFD_size+DSA_size+header_size_img+1 ...
     :preamble_size+SFD_size+DSA_size+header_size_img+w*h*8); %data
 
-preamble = [1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0]';
-preamble_detect = comm.PreambleDetector(preamble,'Input','Bit');
+% preamble = [1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0]';
+% preamble_detect = comm.PreambleDetector(preamble,'Input','Bit');
+% Idx audio
 idx_audio = preamble_detect(bits_Rx(final_img+1:final_img+128))
 bits_Rx_audio = bits_Rx(idx_audio+1-numel(preamble):end);
 
@@ -109,19 +114,19 @@ title('Lena Reshape');
 % Construir y escribir archivo de audio
 SFD_bits_audio = bits_Rx(final_img+preamble_size+1:final_img+preamble_size+SFD_size);
 
-%Destination and Source Address
+%Destination and Source Address audio
 DSA_bits_audio = bits_Rx(final_img+preamble_size+SFD_size+1:final_img+preamble_size+SFD_size+168);
 DSA_size_audio = numel(DSA_bits_audio);
-header_audio = bits_Rx(final_img+preamble_size+SFD_size+DSA_size_audio+1:final_img+preamble_size+SFD_size+DSA_size_audio+32); %header
-%header_data = bit2int(bits_Rx(final_img+preamble_size+SFD_size+DSA_size_audio:final_img+preamble_size+SFD_size+DSA_size_audio+31),32);
-header_data = bit2int(header_audio,32);
-data_bits_audio = bits_Rx(final_img+preamble_size+SFD_size+DSA_size_audio+32+1:final_img+preamble_size+SFD_size+DSA_size_audio+32+header_data); %data
-
-%Destination and Source Address audio
 DSA_val_audio = reshape(DSA_bits_audio, 8, DSA_size_audio/8)'; 
 DSA_val_audio = bi2de(DSA_val_audio, 'left-msb'); 
 DSA_val_audio = char(DSA_val_audio)' %print DSA in console
 
+% Header audio
+header_audio = bits_Rx(final_img+preamble_size+SFD_size+DSA_size_audio+1:final_img+preamble_size+SFD_size+DSA_size_audio+32); %header
+header_data = bit2int(header_audio,32);
+data_bits_audio = bits_Rx(final_img+preamble_size+SFD_size+DSA_size_audio+32+1:final_img+preamble_size+SFD_size+DSA_size_audio+32+header_data); %data
+
+% Construir y escribir archivo de audio
 audioValues = vec2mat(data_bits_audio,8); % Obtain Bytes
 audioValues = bi2de(audioValues); % Bin2Dec conversion
 rxAudioId = fopen('rx_audio.opus','w'); %File ID;
