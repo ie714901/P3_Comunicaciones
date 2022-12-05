@@ -2,7 +2,7 @@ Fs=96000; Nb=16;Chs=1;
 recObj = audiorecorder(Fs, Nb, Chs); 
 get(recObj); 
 disp('Start speaking.') 
-recordblocking(recObj, 80); 
+recordblocking(recObj, 90); 
 disp('End of Recording.'); 
 % Store data in double-pre cision array. 
 myRecording = getaudiodata(recObj); 
@@ -43,10 +43,10 @@ figure();
 plot(Rx_signal_filtered); title('Rx con Match Filter');
 
 % Diagrama de ojo
-figure();
-eyediagram(Rx_signal_filtered(1:100000), 3*mp); %Eye Diagram
+eyediagram(Rx_signal_filtered(1:15000), 3*mp); %Eye Diagram
 
 % Densidad espectral de potencia
+figure();
 pwelch(Rx_signal_filtered,500,300,500,Fs,'power'); %Spectral density 
 
 % Sincronización Early-Late srrc
@@ -67,20 +67,18 @@ bits_Rx = bits_Rx(:);
 % Creación del objeto
 preamble = [1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0]';
 preamble_detect = comm.PreambleDetector(preamble,'Input','Bit');
+preamble_size = numel(preamble);
 SFD = [1 0 1 0 1 0 1 1]';
 % Preamble detection. The index shows where the frame ends
-idx = preamble_detect(bits_Rx(1:128))  % 128 bits window
+idx_img = preamble_detect(bits_Rx(1:128))  % 128 bits window
 % Once found the index, discard "junk bits", as follow
-bits_Rx= bits_Rx(idx+1-numel(preamble):end);
-
-%Sizes
-preamble_size = numel(preamble);
-SFD_size = numel(SFD);
+bits_Rx = bits_Rx(idx_img+1-numel(preamble):end);
 
 % SFD
 SFD_bits = bits_Rx(preamble_size+1:preamble_size+numel(SFD));
+SFD_size = numel(SFD);
 %Destination and Source Address
-DSA_bits = bits_Rx(preamble_size+numel(SFD)+1:preamble_size+numel(SFD)+184);
+DSA_bits = bits_Rx(preamble_size+SFD_size+1:preamble_size+numel(SFD)+184);
 DSA_size = numel(DSA_bits);
 DSA_val = reshape(DSA_bits, 8, DSA_size/8)'; 
 DSA_val = bi2de(DSA_val, 'left-msb'); 
@@ -90,8 +88,14 @@ header = bits_Rx(preamble_size+SFD_size+DSA_size+1:preamble_size+SFD_size+DSA_si
 header_size = numel(header);
 w = bi2de(header(1:16)','left-msb'); %image's width
 h = bi2de(header(17:header_size)','left-msb'); %image's height
+final_img = preamble_size+SFD_size+DSA_size+32+w*h*8;
 data_bits = bits_Rx(preamble_size+SFD_size+DSA_size+header_size+1 ...
     :preamble_size+SFD_size+DSA_size+header_size+w*h*8); %data
+
+preamble = [1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0]';
+preamble_detect = comm.PreambleDetector(preamble,'Input','Bit');
+idx_audio = preamble_detect(bits_Rx(final_img+1:final_img+128))
+bits_Rx_audio = bits_Rx(idx_audio+1-numel(preamble):end);
 
 bits_reshape = reshape(data_bits, 8, w*h); %Matrix of 8 * w * h
 bits_reshape = bits_reshape'; %Transpose 
@@ -102,15 +106,22 @@ imshow(uint8(lena_reshape)); %show the reconstructed image
 title('Lena Reshape');
 
 % Construir y escribir archivo de audio
-SFD_bits = bits_Rx(57:56+numel(SFD));
+SFD_bits_audio = bits_Rx(final_img+preamble_size+1:final_img+preamble_size+SFD_size);
 
 %Destination and Source Address
-DSA_bits = bits_Rx(56+numel(SFD)+1:56+numel(SFD)+288);
+DSA_bits_audio = bits_Rx(final_img+preamble_size+SFD_size+1:final_img+preamble_size+SFD_size+168);
+DSA_size_audio = numel(DSA_bits_audio);
+header_audio = bits_Rx(final_img+preamble_size+SFD_size+DSA_size_audio+1:final_img+preamble_size+SFD_size+DSA_size_audio+32); %header
+header_data = bit2int(bits_Rx(final_img+preamble_size+SFD_size+DSA_size_audio:final_img+preamble_size+SFD_size+DSA_size_audio+31),32);
+data_bits_audio = bits_Rx(final_img+preamble_size+SFD_size+DSA_size_audio+32+1:final_img+preamble_size+SFD_size+DSA_size_audio+32+header_data-1); %data
 
-header = bits_Rx(56+8+288+1:56+8+288+32); %header
-data_bits = bits_Rx(384+1:502104); %data
+%Destination and Source Address audio
+DSA_val_audio = reshape(DSA_bits_audio, 8, DSA_size_audio/8)'; 
+DSA_val_audio = bi2de(DSA_val_audio, 'left-msb'); 
+DSA_val_audio = char(DSA_val_audio)' %print DSA in console
 
-audioValues = vec2mat(data_bits,8); % Obtain Bytes
+audioValues = vec2mat(data_bits_audio,8); % Obtain Bytes
 audioValues = bi2de(audioValues); % Bin2Dec conversion
 rxAudioId = fopen('rx_audio.opus','w'); %File ID;
 fwrite(rxAudioId,audioValues); % Write the file
+fclose(rxAudioId);
